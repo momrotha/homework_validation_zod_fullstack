@@ -6,10 +6,10 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 
 interface DeleteCarButtonProps {
-  car_id: string;
+  id: string;
 }
 
-export function DeleteCarButton({ car_id }: DeleteCarButtonProps) {
+export function DeleteCarButton({ id }: DeleteCarButtonProps) {
   const router = useRouter();
 
   const handleDelete = async () => {
@@ -18,7 +18,7 @@ export function DeleteCarButton({ car_id }: DeleteCarButtonProps) {
 
     try {
       const res = await fetch(
-        `https://car-nextjs-api.cheatdev.online/cars/${car_id}`,
+        `https://car-nextjs-api.cheatdev.online/cars/${id}`,
         {
           method: "DELETE",
           headers: {
