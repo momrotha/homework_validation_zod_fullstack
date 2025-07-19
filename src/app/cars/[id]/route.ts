@@ -21,7 +21,7 @@ let cars: Car[] = [
     price: 25000,
     description: "Reliable sedan",
     color: "White",
-    image: "https://example.com/car1.jpg",
+    image: "https://i.pinimg.com/1200x/54/3a/fe/543afe36a39309aa7b6cf1e18f661648.jpg",
   },
 
 ];

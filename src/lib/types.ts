@@ -1,25 +1,19 @@
 
-// Represents the data needed to create a new car listing
 export type CreateCarType = {
   make: string;
   model: string;
   year: number;
   price: number;
-  mileage: number;
   description: string;
   color: string;
-  fuel_type: string;
-  transmission: string;
   image: string;
 };
 
-// Represents the data to update an existing car listing
-// 'id' should be required to identify which car to update
 export type UpdateCarType = CreateCarType & {
-  id: string; // required for update
+  id: string; 
 };
 
-// User login credentials
+
 export type LoginData = {
   email: string;
   password: string;
