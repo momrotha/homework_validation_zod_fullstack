@@ -106,11 +106,11 @@ export default function HomePage() {
         <Button onClick={goToCreateCar} className="w-full bg-purple-600 text-white rounded-xl">
           Go to Create Car
         </Button>
-        <Button onClick={goToUpdateCar} className="w-full bg-pink-700 text-white rounded-xl">
+        <Button onClick={goToUpdateCar} className="w-full bg-blue-700 text-white rounded-xl">
           Go to Update Car
         </Button>
 
-        <Button onClick={goToDeleteCar} className="w-full bg-blue-600 text-white rounded-xl">
+        <Button onClick={goToDeleteCar} className="w-full bg-red-600 text-white rounded-xl">
           Go to Delete Car
         </Button>
 

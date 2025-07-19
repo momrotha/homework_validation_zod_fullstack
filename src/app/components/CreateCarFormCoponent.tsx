@@ -3,11 +3,8 @@
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useState, useEffect } from "react";
 import secureLocalStorage from "react-secure-storage";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { toast } from "sonner";
-
 import {
   Form,
   FormControl,
@@ -16,115 +13,167 @@ import {
   FormLabel,
   FormMessage,
 } from "@/app/components/ui/form";
-import { Input } from "@/app/components/ui/input";
 import { Button } from "@/app/components/ui/button";
+import { Input } from "@/app/components/ui/input";
+import { Textarea } from "@/app/components/ui/textarea";
+import { useRouter } from "next/navigation";
 
 const carFormSchema = z.object({
-  make: z.string().min(1, "Make is required"),
-  model: z.string().min(1, "Model is required"),
+  make: z.string().min(1, { message: "Make is required" }),
+  model: z.string().min(1, { message: "Model is required" }),
   year: z
-    .string()
-    .refine((val) => /^\d{4}$/.test(val), { message: "Year must be 4 digits" }),
-  price: z
-    .string()
-    .refine((val) => !isNaN(Number(val)), { message: "Price must be a number" }),
+    .coerce.number()
+    .int()
+    .gte(1886, { message: "Year must be at least 1886" })
+    .lte(new Date().getFullYear(), {
+      message: `Year cannot be greater than ${new Date().getFullYear()}`,
+    }),
+  price: z.coerce.number().positive({ message: "Price must be positive" }),
+  mileage: z.coerce.number().nonnegative({ message: "Mileage cannot be negative" }),
   description: z.string().optional(),
-  color: z.string().min(1, "Color is required"),
-  image: z.string().url("Image must be a valid URL"),
+  color: z.string().min(1, { message: "Color is required" }),
+  fuel_type: z.string().min(1, { message: "Fuel type is required" }),
+  transmission: z.string().min(1, { message: "Transmission is required" }),
+  image: z.string().url({ message: "Must be a valid image URL" }),
 });
-
-type CarForm = z.infer<typeof carFormSchema>;
 
 export default function CreateCarFormComponent() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  const form = useForm<CarForm>({
-    resolver: zodResolver(carFormSchema),
+  const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL_PUBLIC_API || "";
+
+  useEffect(() => {
+    const token = secureLocalStorage.getItem("authToken");
+    setIsAuthenticated(!!token);
+    if (!token) {
+      setMessage("Please login first to create a car");
+    }
+  }, []);
+
+  const form = useForm<z.infer<typeof carFormSchema>>({
+    resolver: zodResolver(carFormSchema) as any,
     defaultValues: {
       make: "",
       model: "",
-      year: "",
-      price: "",
+      year: new Date().getFullYear(),
+      price: 0,
       description: "",
       color: "",
       image: "",
     },
   });
 
-  const onSubmit = async (values: CarForm) => {
-    const token = secureLocalStorage.getItem("authToken");
-    if (!token) {
-      alert("You must login first to create a car.");
-      router.push("/login");
-      return;
-    }
+  async function onSubmit(values: z.infer<typeof carFormSchema>) {
+    setIsLoading(true);
+    setMessage("");
 
     try {
-      setIsLoading(true);
+      const token = secureLocalStorage.getItem("authToken") as string;
+      console.log("Token:", token);
 
-      const response = await fetch("https://car-nextjs-api.cheatdev.online/cars", {
+      if (!token) {
+        setMessage("Please login first");
+        setIsLoading(false);
+        return;
+      }
+
+      const res = await fetch(`${BASE_URL}/cars`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Accept: "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          make: values.make,
-          model: values.model,
-          year: Number(values.year),
-          price: Number(values.price),
-          description: values.description,
-          color: values.color,
-          image: values.image,
-        }),
+        body: JSON.stringify(values),
       });
 
-      if (response.status === 401) {
-        alert("Unauthorized! Please login again.");
-        router.push("/login");
+      let data;
+      try {
+        data = await res.json();
+      } catch (jsonError) {
+        const text = await res.text();
+        console.error("Failed to parse JSON:", jsonError, text);
+        setMessage("Server error: Invalid response format");
+        setIsLoading(false);
         return;
       }
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        alert("Error: " + (errorData.message || "Failed to create car"));
+      if (!res.ok) {
+        if (res.status === 401) {
+          setMessage("Unauthorized. Please login again.");
+          setIsAuthenticated(false);
+        } else {
+          setMessage(data.message || "Failed to create car");
+        }
+        setIsLoading(false);
         return;
       }
 
-      toast.success("Car created successfully!");
-      router.push("/dashboard");
+      setMessage("Car created successfully!");
+      form.reset();
+
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 1500);
     } catch (error) {
-      alert("Unexpected error: " + (error as any).message);
+      console.error("Error:", error);
+      setMessage("An error occurred while creating the car");
     } finally {
       setIsLoading(false);
     }
-  };
+  }
 
   return (
-    <div className="max-w-xl mx-auto p-6 bg-white rounded-xl shadow-md">
-      <h2 className="text-2xl font-bold mb-4">Create a New Car</h2>
+    <div className="max-w-xl mx-auto mt-10 p-8 bg-white rounded-lg shadow-md">
+      {!isAuthenticated && (
+        <div className="mb-6 p-4 bg-yellow-100 border border-yellow-300 rounded-md">
+          <p className="text-yellow-800 mb-2">You need to login to create a car.</p>
+          <a
+            href="/login"
+            className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Go to Login
+          </a>
+        </div>
+      )}
+
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          {message && (
+            <div
+              className={`p-3 rounded-md ${
+                message.includes("success")
+                  ? "bg-green-100 text-green-800 border border-green-300"
+                  : "bg-red-100 text-red-800 border border-red-300"
+              }`}
+            >
+              {message}
+            </div>
+          )}
+
           {[
-            { name: "make", label: "Make", type: "string" },
-            { name: "model", label: "Model", type: "string" },
-            { name: "year", label: "Year", type: "number" },
-            { name: "price", label: "Price ($)", type: "number" },
-            { name: "description", label: "Description", type: "text" },
-            { name: "color", label: "Color", type: "text" },
-            { name: "image", label: "Image URL", type: "string" },
-          ].map(({ name, label, type }) => (
+            "make",
+            "model",
+            "year",
+            "price",
+            "color",
+            "image",
+          ].map((fieldName) => (
             <FormField
-              key={name}
+              key={fieldName}
               control={form.control}
-              name={name as keyof CarForm}
+              name={fieldName as keyof z.infer<typeof carFormSchema>}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{label}</FormLabel>
+                  <FormLabel className="capitalize">{fieldName.replace(/_/g, " ")}</FormLabel>
                   <FormControl>
-                    <Input placeholder={label} type={type} {...field} />
+                    <Input
+                      {...field}
+                      type={["year", "price", "mileage"].includes(fieldName) ? "number" : "text"}
+                      placeholder={`Enter ${fieldName.replace(/_/g, " ")}`}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -132,11 +181,21 @@ export default function CreateCarFormComponent() {
             />
           ))}
 
-          <Button
-            type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-            disabled={isLoading}
-          >
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Description</FormLabel>
+                <FormControl>
+                  <Textarea {...field} placeholder="Describe the car..." />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <Button type="submit" className="w-full" disabled={isLoading || !isAuthenticated}>
             {isLoading ? "Creating..." : "Create Car"}
           </Button>
         </form>

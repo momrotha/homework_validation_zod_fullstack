@@ -1,5 +1,9 @@
+import UpdateCarFormComponent  from '@/app/components/UpdateCarFormComponent'
 
-
-export default function UpdateIndexPage() {
-  return <p>Please select a car to update by ID in the URL.</p>
+export default function page() {
+  return (
+    <div>
+      <UpdateCarFormComponent />
+    </div>
+  )
 }
