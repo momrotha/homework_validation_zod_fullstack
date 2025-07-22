@@ -6,26 +6,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     console.log("Create car request body:", body);
 
-    const {
-      make,
-      model,
-      year,
-      price,
-      description,
-      color,
-      image,
-    } = body;
-
+    const { make, model, year, price, description, color, image } = body;
 
     const authHeader = request.headers.get("authorization");
     let accessToken = null;
 
     if (authHeader && authHeader.startsWith("Bearer ")) {
-      accessToken = authHeader.substring(7); // Remove "Bearer " prefix
+      accessToken = authHeader.substring(7);
       console.log("Token found in Authorization header");
     } else {
-      // Fallback to cookies
-      accessToken = (await cookies()).get("accessToken")?.value;
+      accessToken = cookies().get("accessToken")?.value;
       console.log("Token found in cookies:", accessToken ? "Yes" : "No");
     }
 
@@ -37,18 +27,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("Making request to external API...");
-
-    const carBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+    const carBaseUrl = process.env.NEXT_PUBLIC_BASE_URL_PUBLIC_API;
     if (!carBaseUrl) {
-      console.error("NEXT_PUBLIC_API_URL is not defined");
+      console.error("Missing env: NEXT_PUBLIC_BASE_URL_PUBLIC_API");
       return NextResponse.json(
-        { message: "Server configuration error: NEXT_PUBLIC_API_URL is not defined" },
+        { message: "Server configuration error" },
         { status: 500 }
       );
     }
 
-    const fetchData = await fetch(`${carBaseUrl}/cars`, {
+    const res = await fetch(`${carBaseUrl}/cars`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -65,24 +53,22 @@ export async function POST(request: NextRequest) {
       }),
     });
 
-    if (!fetchData.ok) {
-      const errorData = await fetchData.text();
-      console.error("External API Error:", errorData);
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error("API Error:", errorText);
       return NextResponse.json(
         {
           message: "Failed to create car",
-          error: errorData,
+          error: errorText,
         },
-        {
-          status: fetchData.status,
-        }
+        { status: res.status }
       );
     }
 
-    const result = await fetchData.json();
+    const result = await res.json();
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Create car error:", error);
+    console.error("Server error:", error);
     return NextResponse.json(
       {
         message: "Internal server error",

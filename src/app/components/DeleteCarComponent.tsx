@@ -1,159 +1,112 @@
 "use client";
 
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, useEffect } from "react";
-import secureLocalStorage from "react-secure-storage";
-import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from "@/app/components/ui/form";
-import { Button } from "@/app/components/ui/button";
-import { Input } from "@/app/components/ui/input";
 
-const deleteCarSchema = z.object({
-  id: z.string().min(1, { message: "Car ID is required" }),
-});
+interface Car {
+  id: string;
+  make: string;
+  model: string;
+  year: number;
+}
 
-export default function DeleteCarFormComponent() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+export default function DeleteCarComponent() {
+  const [cars, setCars] = useState<Car[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const API_BASE = process.env.NEXT_PUBLIC_BASE_URL_PUBLIC_API || "https://car-nextjs-api.cheatdev.online";
+
+  // Fetch car list
+  async function fetchCars() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/cars`);
+      if (!res.ok) throw new Error("Failed to fetch cars");
+      const data = await res.json();
+      setCars(data);
+    } catch (err: any) {
+      setError(err.message || "Error fetching cars");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   useEffect(() => {
-    const token = secureLocalStorage.getItem("authToken");
-    setIsAuthenticated(!!token);
-    if (!token) {
-      setMessage("Please login first to delete a car");
-    }
+    fetchCars();
   }, []);
 
-  const form = useForm<z.infer<typeof deleteCarSchema>>({
-    resolver: zodResolver(deleteCarSchema),
-    defaultValues: {
-      id: "",
-    },
-  });
+  // Delete car by ID
+  async function handleDelete(id: string) {
+    if (!confirm("Are you sure you want to delete this car?")) return;
 
-  async function onSubmit(values: z.infer<typeof deleteCarSchema>) {
-    setIsLoading(true);
-    setMessage("");
+    setDeletingId(id);
+    setError(null);
 
     try {
-      const token = secureLocalStorage.getItem("authToken") as string;
-
+      const token = localStorage.getItem("authToken"); // or secureLocalStorage.getItem
       if (!token) {
-        setMessage("Please login first");
-        setIsLoading(false);
+        setError("You must be logged in to delete cars.");
+        setDeletingId(null);
         return;
       }
 
-      const res = await fetch("/api/delete", {
+      const res = await fetch(`${API_BASE}/cars/${id}`, {
         method: "DELETE",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(values),
       });
 
-      let data;
-      try {
-        data = await res.json();
-      } catch (jsonError) {
-        const textResponse = await res.text();
-        console.error("Failed to parse JSON response:", jsonError);
-        console.error("Response text:", textResponse);
-        setMessage("Server error: Invalid response format");
-        setIsLoading(false);
-        return;
-      }
-
       if (!res.ok) {
-        let errorMessage = data.message || "Failed to delete car";
-        if (res.status === 403) {
-          errorMessage = "Lub Car bos yg create.";
-        } else if (res.status === 404) {
-          errorMessage = "Car not found. It may have already been deleted.";
-        } else if (res.status === 401) {
-          errorMessage = "Authentication failed. Please login again.";
-        }
-
-        setMessage(errorMessage);
-        setIsLoading(false);
-        return;
+        const errorData = await res.json();
+        throw new Error(errorData.message || "Failed to delete car");
       }
 
-      setMessage("Car deleted successfully!");
-      form.reset();
-    } catch (error) {
-      console.error("Error:", error);
-      setMessage("An error occurred while deleting the car");
+      // Remove deleted car from list immediately
+      setCars((prev) => prev.filter((car) => car.id !== id));
+    } catch (err: any) {
+      setError(err.message || "Error deleting car");
     } finally {
-      setIsLoading(false);
+      setDeletingId(null);
     }
   }
 
   return (
-    <div className="max-w-xl mx-auto">
-      {!isAuthenticated && (
-        <div className="mb-6 p-4 bg-yellow-100 border border-yellow-300 rounded-md">
-          <p className="text-yellow-800 mb-2">
-            You need to login to delete a car.
-          </p>
-          <a
-            href="/login"
-            className="inline-block px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Go to Login
-          </a>
-        </div>
+    <div className="max-w-3xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">Car List</h1>
+
+      {error && (
+        <div className="mb-4 p-3 bg-red-100 text-red-800 rounded">{error}</div>
       )}
 
-      <Form {...form}>
-        <form
-          onSubmit={form.handleSubmit(onSubmit)}
-          className="space-y-6 p-6 bg-white rounded-lg shadow-md"
-        >
-          {message && (
-            <div
-              className={`p-3 rounded-md ${
-                message.includes("successfully")
-                  ? "bg-green-100 text-green-800 border border-green-300"
-                  : "bg-red-100 text-red-800 border border-red-300"
-              }`}
+      {loading ? (
+        <p>Loading cars...</p>
+      ) : cars.length === 0 ? (
+        <p>No cars found.</p>
+      ) : (
+        <ul className="space-y-4">
+          {cars.map((car) => (
+            <li
+              key={car.id}
+              className="flex justify-between items-center border p-4 rounded shadow"
             >
-              {message}
-            </div>
-          )}
-
-          <FormField
-            control={form.control}
-            name="id"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-sm font-medium text-gray-700">
-                  Car ID
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    {...field}
-                    placeholder="Enter Car ID"
-                    className="border-gray-300 focus:ring-2 focus:ring-red-500 rounded-md"
-                  />
-                </FormControl>
-                <FormMessage className="text-red-500 text-xs mt-1" />
-              </FormItem>
-            )}
-          />
-
-          <Button
-            type="submit"
-            className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md transition-colors"
-            disabled={isLoading || !isAuthenticated}
-          >
-            {isLoading ? "Deleting..." : "Delete Car"}
-          </Button>
-        </form>
-      </Form>
+              <div>
+                <strong>{car.make} {car.model}</strong> - {car.year}
+              </div>
+              <button
+                className="bg-red-600 text-white px-3 py-1 rounded disabled:opacity-50"
+                disabled={deletingId === car.id}
+                onClick={() => handleDelete(car.id)}
+              >
+                {deletingId === car.id ? "Deleting..." : "Delete"}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

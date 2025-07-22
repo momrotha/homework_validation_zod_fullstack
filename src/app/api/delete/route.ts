@@ -39,11 +39,11 @@ export async function DELETE(request: NextRequest) {
 
     console.log("Making request to external API...");
 
-    const carBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+    const carBaseUrl = process.env.NEXT_PUBLIC_BASE_URL_PUBLIC_API;
     if (!carBaseUrl) {
-      console.error("NEXT_PUBLIC_API_URL is not defined");
+      console.error("NEXT_PUBLIC_BASE_URL_PUBLIC_API is not defined");
       return NextResponse.json(
-        { message: "Server configuration error: NEXT_PUBLIC_API_URL is not defined" },
+        { message: "Server configuration error: NEXT_PUBLIC_BASE_URL_PUBLIC_API is not defined" },
         { status: 500 }
       );
     }

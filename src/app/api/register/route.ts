@@ -4,7 +4,7 @@ export async function POST(request: NextRequest) {
   const { username, email, password, confirmed_password } = body;
   try {
     
-    const fetchData = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/register`,
+    const fetchData = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL_PUBLIC_API}/register`,
       {
         method: "POST",
         headers: {

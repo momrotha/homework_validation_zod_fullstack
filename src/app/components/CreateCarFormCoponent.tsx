@@ -89,7 +89,7 @@ export default function CreateCarFormComponent() {
       } catch (jsonError) {
         const text = await res.text();
         console.error("Failed to parse JSON:", jsonError, text);
-        setMessage("Server error: Invalid response format");
+        setMessage("Server error: Invalid response format");        
         setIsLoading(false);
         return;
       }
